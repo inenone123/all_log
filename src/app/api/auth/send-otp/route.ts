@@ -3,17 +3,13 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   const { email } = await request.json()
+  const origin = request.headers.get('origin') ?? ''
   const supabase = await createClient()
-
-  const siteUrl = process.env.SITE_URL
-  if (!siteUrl) {
-    return NextResponse.json({ error: 'SITE_URL not configured' }, { status: 500 })
-  }
 
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
-      emailRedirectTo: `${siteUrl}/auth/callback`,
+      emailRedirectTo: `${origin}/auth/callback`,
     },
   })
 
