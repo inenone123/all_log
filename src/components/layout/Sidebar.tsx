@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { BookOpen, List, Compass, Settings, LogOut, Menu, X } from 'lucide-react'
+import { BookOpen, List, Compass, CalendarDays, Settings, LogOut, Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 
 const navItems = [
   { href: '/', label: 'マイリスト', icon: List },
+  { href: '/releases', label: '発売予定', icon: CalendarDays },
   { href: '/discover', label: 'ディスカバー', icon: Compass },
   { href: '/settings', label: '設定', icon: Settings },
 ]
