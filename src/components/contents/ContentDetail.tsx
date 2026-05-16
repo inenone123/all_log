@@ -13,7 +13,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 
 const TYPE_LABELS: Record<ContentType, string> = {
-  book: '本', manga: '漫画', movie: '映画', anime: 'アニメ', other: 'その他',
+  book: '本', manga: '漫画', novel: '小説', movie: '映画', anime: 'アニメ', other: 'その他',
 }
 
 const STATUS_LABELS: Record<ContentStatus, string> = {

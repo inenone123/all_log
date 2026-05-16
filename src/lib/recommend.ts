@@ -6,7 +6,7 @@ export interface RecommendItem {
   title: string
   cover_url: string | null
   description: string | null
-  type: 'anime' | 'manga' | 'book' | 'movie' | 'other'
+  type: 'anime' | 'manga' | 'book' | 'movie' | 'novel' | 'other'
   genres: string[]
   matchReason: string
   score: number
@@ -16,17 +16,19 @@ export interface GenreDiscovery {
   genre: string
   genreEn: string
   reason: string
+  mediaType: 'ANIME' | 'MANGA'
   examples: Array<{ title: string; cover_url: string | null; external_id: string }>
 }
 
 export interface RecommendResult {
-  recommendations: RecommendItem[]
-  discoveries: GenreDiscovery[]
+  animeRecs: RecommendItem[]
+  mangaRecs: RecommendItem[]
+  animeDiscoveries: GenreDiscovery[]
+  mangaDiscoveries: GenreDiscovery[]
   profileSummary: string
   topGenres: string[]
 }
 
-// Genre display names
 const GENRE_JA: Record<string, string> = {
   Action: 'アクション', Romance: 'ロマンス', Comedy: 'コメディ',
   Drama: 'ドラマ', Fantasy: 'ファンタジー', 'Sci-Fi': 'SF',
@@ -37,41 +39,26 @@ const GENRE_JA: Record<string, string> = {
 
 const ALL_GENRES = Object.keys(GENRE_JA)
 
-// --- Taste profile ---
-
-interface TasteProfile {
-  genreWeights: Record<string, number>
-  topGenres: Array<{ genre: string; weight: number }>
-}
-
-function buildTasteProfile(contents: Content[]): TasteProfile {
+function buildTasteProfile(contents: Content[]) {
   const genreWeights: Record<string, number> = {}
-
   for (const c of contents) {
     let weight = 1
     if (c.status === 'completed') weight += 2
     if (c.status === 'reading') weight += 1
     if (c.rating) weight += c.rating - 1
-
     const genres =
       (c.metadata?.genres as string[] | undefined) ??
-      (c.metadata?.categories as string[] | undefined) ??
-      []
-
+      (c.metadata?.categories as string[] | undefined) ?? []
     for (const g of genres) {
       genreWeights[g] = (genreWeights[g] ?? 0) + weight
     }
   }
-
   const topGenres = Object.entries(genreWeights)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 10)
     .map(([genre, weight]) => ({ genre, weight }))
-
   return { genreWeights, topGenres }
 }
-
-// --- AniList recommendation fetch ---
 
 async function fetchAniListRecs(
   mediaId: string,
@@ -102,37 +89,29 @@ async function fetchAniListRecs(
     })
     const data = await res.json()
     const nodes: unknown[] = data?.data?.Media?.recommendations?.nodes ?? []
-
     return nodes
-      .filter((n): n is Record<string, unknown> => {
-        const node = n as Record<string, unknown>
-        return !!node.mediaRecommendation
-      })
+      .filter((n): n is Record<string, unknown> => !!(n as Record<string, unknown>).mediaRecommendation)
       .map((n) => {
         const node = n as Record<string, unknown>
         const m = node.mediaRecommendation as Record<string, unknown>
         const genres = (m.genres as string[]) ?? []
         const matchedGenres = genres.filter((g) => (genreWeights[g] ?? 0) > 0)
-        const ratingScore = ((node.rating as number) ?? 0) * 0.5
-        const genreScore = matchedGenres.length * 20
-        const communityScore = ((m.meanScore as number) ?? 0) * 0.1
-        const score = ratingScore + genreScore + communityScore
+        const score =
+          ((node.rating as number) ?? 0) * 0.5 +
+          matchedGenres.length * 20 +
+          ((m.meanScore as number) ?? 0) * 0.1
         const titleObj = m.title as Record<string, string>
-
         return {
           external_id: String(m.id),
           external_src: 'anilist',
           title: titleObj.native ?? titleObj.romaji ?? '',
           cover_url: (m.coverImage as Record<string, string>)?.large ?? null,
-          description:
-            ((m.description as string) ?? '')
-              .replace(/<[^>]+>/g, '')
-              .slice(0, 150) || null,
+          description: ((m.description as string) ?? '').replace(/<[^>]+>/g, '').slice(0, 150) || null,
           type: (m.type as string) === 'MANGA' ? 'manga' : 'anime',
           genres,
           matchReason:
             matchedGenres.length > 0
-              ? `${matchedGenres.slice(0, 2).map(g => GENRE_JA[g] ?? g).join('・')}が好きなあなたに`
+              ? `${matchedGenres.slice(0, 2).map((g) => GENRE_JA[g] ?? g).join('・')}が好きなあなたに`
               : 'コミュニティで高評価',
           score,
         } satisfies RecommendItem
@@ -142,29 +121,24 @@ async function fetchAniListRecs(
   }
 }
 
-// --- Unexplored genre discovery ---
-
 async function fetchUnexploredGenres(
   genreWeights: Record<string, number>,
-  existingIds: Set<string>
+  existingIds: Set<string>,
+  mediaType: 'ANIME' | 'MANGA'
 ): Promise<GenreDiscovery[]> {
   const exploredGenres = new Set(
-    Object.entries(genreWeights)
-      .filter(([, w]) => w > 0)
-      .map(([g]) => g)
+    Object.entries(genreWeights).filter(([, w]) => w > 0).map(([g]) => g)
   )
   const unexplored = ALL_GENRES.filter((g) => !exploredGenres.has(g))
   if (unexplored.length === 0) return []
-
   const targets = unexplored.slice(0, 3)
   const results: GenreDiscovery[] = []
-
   await Promise.all(
     targets.map(async (genre) => {
       const query = `
-        query ($genre: String) {
+        query ($genre: String, $type: MediaType) {
           Page(page: 1, perPage: 4) {
-            media(genre: $genre, type: ANIME, sort: POPULARITY_DESC) {
+            media(genre: $genre, type: $type, sort: POPULARITY_DESC) {
               id title { native romaji } coverImage { large }
             }
           }
@@ -174,7 +148,7 @@ async function fetchUnexploredGenres(
         const res = await fetch('https://graphql.anilist.co', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query, variables: { genre } }),
+          body: JSON.stringify({ query, variables: { genre, type: mediaType } }),
         })
         const data = await res.json()
         const items: unknown[] = data?.data?.Page?.media ?? []
@@ -190,81 +164,73 @@ async function fetchUnexploredGenres(
           })
           .filter((ex) => !existingIds.has(ex.external_id))
           .slice(0, 3)
-
         if (examples.length > 0) {
           results.push({
             genre: GENRE_JA[genre] ?? genre,
             genreEn: genre,
             reason: `あなたのリストに${GENRE_JA[genre] ?? genre}作品がまだありません`,
+            mediaType,
             examples,
           })
         }
-      } catch {
-        // skip
-      }
+      } catch { /* skip */ }
     })
   )
-
   return results
 }
 
-// --- Main entry point ---
-
-export async function generateRecommendations(
-  contents: Content[]
-): Promise<RecommendResult> {
+export async function generateRecommendations(contents: Content[]): Promise<RecommendResult> {
   if (contents.length === 0) {
-    return {
-      recommendations: [],
-      discoveries: [],
-      profileSummary: 'コンテンツを登録するとおすすめが表示されます',
-      topGenres: [],
-    }
+    return { animeRecs: [], mangaRecs: [], animeDiscoveries: [], mangaDiscoveries: [], profileSummary: 'コンテンツを登録するとおすすめが表示されます', topGenres: [] }
   }
-
   const { genreWeights, topGenres } = buildTasteProfile(contents)
+  const existingIds = new Set(contents.map((c) => c.external_id ?? '').filter(Boolean))
 
-  const existingIds = new Set(
-    contents.map((c) => c.external_id ?? '').filter(Boolean)
-  )
-
-  // Top enjoyed AniList content as recommendation seeds
-  const seeds = contents
-    .filter(
-      (c) =>
-        c.external_src === 'anilist' &&
-        c.external_id &&
-        (c.status === 'completed' || (c.rating ?? 0) >= 4)
-    )
+  const animeSeeds = contents
+    .filter((c) => c.external_src === 'anilist' && c.external_id && (c.status === 'completed' || (c.rating ?? 0) >= 4))
+    .filter((c) => {
+      const genres = (c.metadata?.genres as string[]) ?? []
+      return genres.length === 0 || !genres.includes('MANGA')
+    })
     .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
     .slice(0, 3)
 
-  // Fetch recs in parallel
-  const recArrays = await Promise.all(
-    seeds.map((c) => fetchAniListRecs(c.external_id!, genreWeights))
-  )
-
-  const seen = new Set<string>()
-  const recommendations = recArrays
-    .flat()
-    .filter((r) => {
-      if (existingIds.has(r.external_id) || seen.has(r.external_id)) return false
-      seen.add(r.external_id)
-      return true
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12)
-
-  const discoveries = await fetchUnexploredGenres(genreWeights, existingIds)
-
-  const topGenreNames = topGenres
+  const mangaSeeds = contents
+    .filter((c) => c.external_src === 'anilist' && c.external_id && (c.status === 'completed' || (c.rating ?? 0) >= 4) && c.type === 'manga')
+    .sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
     .slice(0, 3)
-    .map((g) => GENRE_JA[g.genre] ?? g.genre)
 
-  const profileSummary =
-    topGenreNames.length > 0
-      ? `${topGenreNames.join('・')}が好みのようです`
-      : '様々なジャンルを楽しんでいます'
+  const [animeRecArrays, mangaRecArrays, animeDiscoveries, mangaDiscoveries] = await Promise.all([
+    Promise.all(animeSeeds.map((c) => fetchAniListRecs(c.external_id!, genreWeights))),
+    Promise.all(mangaSeeds.map((c) => fetchAniListRecs(c.external_id!, genreWeights))),
+    fetchUnexploredGenres(genreWeights, existingIds, 'ANIME'),
+    fetchUnexploredGenres(genreWeights, existingIds, 'MANGA'),
+  ])
 
-  return { recommendations, discoveries, profileSummary, topGenres: topGenreNames }
+  function dedup(items: RecommendItem[], type: 'anime' | 'manga'): RecommendItem[] {
+    const seen = new Set<string>()
+    return items
+      .flat()
+      .filter((r) => {
+        if (existingIds.has(r.external_id) || seen.has(r.external_id) || r.type !== type) return false
+        seen.add(r.external_id)
+        return true
+      })
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+  }
+
+  const topGenreNames = topGenres.slice(0, 3).map((g) => GENRE_JA[g.genre] ?? g.genre)
+  const profileSummary = topGenreNames.length > 0
+    ? `${topGenreNames.join('・')}が好みのようです`
+    : '様々なジャンルを楽しんでいます'
+
+  return {
+    animeRecs: dedup(animeRecArrays.flat(), 'anime'),
+    mangaRecs: dedup(mangaRecArrays.flat(), 'manga'),
+    animeDiscoveries,
+    mangaDiscoveries,
+    profileSummary,
+    topGenres: topGenreNames,
+  }
 }

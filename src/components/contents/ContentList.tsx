@@ -17,6 +17,7 @@ const STATUS_LABELS: Record<ContentStatus, string> = {
 const TYPE_LABELS: Record<ContentType, string> = {
   book: '本',
   manga: '漫画',
+  novel: '小説',
   movie: '映画',
   anime: 'アニメ',
   other: 'その他',

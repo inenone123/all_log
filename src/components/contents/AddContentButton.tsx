@@ -167,6 +167,7 @@ export function AddContentButton() {
                   <SelectContent>
                     <SelectItem value="book">本</SelectItem>
                     <SelectItem value="manga">漫画</SelectItem>
+                    <SelectItem value="novel">小説</SelectItem>
                     <SelectItem value="anime">アニメ</SelectItem>
                     <SelectItem value="movie">映画</SelectItem>
                     <SelectItem value="other">その他</SelectItem>

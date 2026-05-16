@@ -14,7 +14,7 @@ import {
 import { Star, BookOpen, Film, Tv, BookMarked, HelpCircle } from 'lucide-react'
 
 const TYPE_LABELS: Record<ContentType, string> = {
-  book: '本', manga: '漫画', movie: '映画', anime: 'アニメ', other: 'その他',
+  book: '本', manga: '漫画', novel: '小説', movie: '映画', anime: 'アニメ', other: 'その他',
 }
 
 const STATUS_LABELS: Record<ContentStatus, string> = {
@@ -29,7 +29,7 @@ const STATUS_COLORS: Record<ContentStatus, string> = {
 }
 
 const TYPE_ICONS: Record<ContentType, React.ElementType> = {
-  book: BookOpen, manga: BookMarked, movie: Film, anime: Tv, other: HelpCircle,
+  book: BookOpen, manga: BookMarked, novel: BookOpen, movie: Film, anime: Tv, other: HelpCircle,
 }
 
 const STATUSES = Object.keys(STATUS_LABELS) as ContentStatus[]

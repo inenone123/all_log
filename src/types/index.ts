@@ -1,4 +1,4 @@
-export type ContentType = 'book' | 'manga' | 'movie' | 'anime' | 'other'
+export type ContentType = 'book' | 'manga' | 'novel' | 'movie' | 'anime' | 'other'
 export type ContentStatus = 'want' | 'reading' | 'completed' | 'dropped'
 
 export interface Content {

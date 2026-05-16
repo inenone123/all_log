@@ -120,6 +120,8 @@ export async function GET(request: Request) {
 
     if (type === 'book') {
       results = await searchBooks(query)
+    } else if (type === 'novel') {
+      results = await searchBooks(query)
     } else if (type === 'manga') {
       const [anilist, books] = await Promise.all([
         searchAniList(query, 'MANGA'),
