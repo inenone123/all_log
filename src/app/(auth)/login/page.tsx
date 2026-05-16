@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,16 +21,15 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin}/auth/callback`,
-        },
+      const res = await fetch('/api/auth/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
       })
+      const data = await res.json()
 
-      if (error) {
-        setError(`Supabaseエラー: ${error.message} (status: ${error.status})`)
+      if (!res.ok) {
+        setError(`エラー: ${data.error} (status: ${data.status ?? res.status})`)
       } else {
         setSent(true)
       }
