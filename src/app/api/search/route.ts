@@ -11,7 +11,7 @@ export interface SearchResult {
 }
 
 async function searchBooks(query: string): Promise<SearchResult[]> {
-  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&langRestrict=ja&maxResults=8&orderBy=relevance`
+  const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&maxResults=8&orderBy=relevance`
   const res = await fetch(url)
   const data = await res.json()
   if (!data.items) return []
