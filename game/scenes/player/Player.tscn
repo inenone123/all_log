@@ -1,0 +1,48 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="Script" path="res://scripts/player/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/core/state_machine.gd" id="2_sm"]
+[ext_resource type="Script" path="res://scripts/player/states/state_idle.gd" id="3_idle"]
+[ext_resource type="Script" path="res://scripts/player/states/state_run.gd" id="4_run"]
+[ext_resource type="Script" path="res://scripts/player/states/state_jump.gd" id="5_jump"]
+[ext_resource type="Script" path="res://scripts/player/states/state_fall.gd" id="6_fall"]
+[ext_resource type="Script" path="res://scripts/player/states/state_dash.gd" id="7_dash"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]
+size = Vector2(48, 96)
+
+[node name="Player" type="CharacterBody2D"]
+collision_layer = 2
+collision_mask = 1
+script = ExtResource("1_player")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="Visual" type="ColorRect" parent="."]
+offset_left = -24.0
+offset_top = -48.0
+offset_right = 24.0
+offset_bottom = 48.0
+mouse_filter = 2
+color = Color(0.3, 0.7, 1, 1)
+
+[node name="Camera2D" type="Camera2D" parent="."]
+
+[node name="StateMachine" type="Node" parent="."]
+script = ExtResource("2_sm")
+
+[node name="Idle" type="Node" parent="StateMachine"]
+script = ExtResource("3_idle")
+
+[node name="Run" type="Node" parent="StateMachine"]
+script = ExtResource("4_run")
+
+[node name="Jump" type="Node" parent="StateMachine"]
+script = ExtResource("5_jump")
+
+[node name="Fall" type="Node" parent="StateMachine"]
+script = ExtResource("6_fall")
+
+[node name="Dash" type="Node" parent="StateMachine"]
+script = ExtResource("7_dash")
